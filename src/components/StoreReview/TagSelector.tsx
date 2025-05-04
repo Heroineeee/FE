@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Tag from './Tag';
 export interface TagSelectorProps {
   tags: string[];
-  selectedTags: string[]; // 상위에서 전달
+  selectedTags: string[];
   onChange: (updated: string[]) => void;
 }
 
@@ -11,22 +11,12 @@ const TagSelector: React.FC<TagSelectorProps> = ({
   selectedTags,
   onChange,
 }) => {
-  const [localSelected, setLocalSelected] = useState<string[]>(
-    tags.filter((t) => selectedTags.includes(t)),
-  );
-
   const toggleTag = (tag: string) => {
-    const isSelected = localSelected.includes(tag);
-    let updated: string[];
-
-    if (isSelected) {
-      updated = localSelected.filter((t) => t !== tag);
-    } else {
-      updated = [...localSelected, tag];
-    }
-
-    setLocalSelected(updated);
-    onChange(updated); 
+    const isSelected = selectedTags.includes(tag);
+    const updated = isSelected
+      ? selectedTags.filter((t) => t !== tag)
+      : [...selectedTags, tag];
+    onChange(updated);
   };
 
   return (

@@ -99,5 +99,4 @@ export interface StoreReview {
   isOwner: boolean | null;
   latitude: number;
   longitude: number;
-
 }

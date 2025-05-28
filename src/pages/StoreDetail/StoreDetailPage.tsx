@@ -44,17 +44,10 @@ const StoreDetailPage = () => {
       <TopBar rightElement />
       <StoreDetailInfo
         store={store}
-        storeId={store.storeId}
-        category={store.storeCategory}
-        name={store.storeName}
-        address={store.storeAddress}
-        badgeText={store.representativeTag ?? undefined}
         isLiked={isLiked}
         setIsLiked={setIsLiked}
         favoriteCount={likeCount}
         setLikeCount={setLikeCount}
-        weekly={store.storeWeeklyOpeningHours ?? undefined}
-        updatedDate={store.storeUpdatedDate}
       />
 
       <StoreDetailMap store={store} />

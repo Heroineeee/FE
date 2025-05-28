@@ -1,6 +1,5 @@
 import Icon from '@/assets/icons';
 import { useState } from 'react';
-import type { WeeklyHours } from '@/types/store';
 import BusinessHours from './BusinessHours';
 import MainTag from '../StoreReview/MainTag';
 import RequestEditButton from './RequestEditButton';
@@ -12,48 +11,37 @@ import type { StoreDetail } from '@/types/store';
 
 interface StoreDetailInfoProps {
   store: StoreDetail;
-  storeId?: number;
-  category: string;
-  name: string;
-  address: string;
-  badgeText?: string;
-  favoriteCount: number;
   isLiked: boolean;
   setIsLiked: (liked: boolean) => void;
+  favoriteCount: number;
   setLikeCount: (count: number) => void;
-  weekly?: WeeklyHours;
-  updatedDate: string;
 }
 
 const StoreDetailInfo: React.FC<StoreDetailInfoProps> = ({
   store,
-  storeId,
-  category,
-  name,
-  address,
-  badgeText,
-  favoriteCount,
   isLiked,
   setIsLiked,
+  favoriteCount,
   setLikeCount,
-  weekly,
-  updatedDate,
 }) => {
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
+  const {
+    storeId,
+    storeName,
+    storeCategory,
+    storeAddress,
+    representativeTag,
+    storeWeeklyOpeningHours,
+    storeUpdatedDate,
+  } = store;
+
   const handleLikeClick = async () => {
     const token = localStorage.getItem('accessToken');
-
     if (!token) {
       setIsBottomSheetOpen(true);
       return;
     }
-
-    if (!storeId) {
-      console.error('[스크랩 실패] storeId가 undefined입니다.');
-      return;
-    }
-
     try {
       const response = await axios({
         method: isLiked ? 'delete' : 'post',
@@ -79,22 +67,21 @@ const StoreDetailInfo: React.FC<StoreDetailInfoProps> = ({
       <div className="flex flex-col gap-[12px] w-full">
         {/* 카테고리, 이름, 태그 */}
         <div className="flex flex-col gap-[4px]">
-          <p className="text-xs font-medium text-[#919191]">{category}</p>
+          <p className="text-xs font-medium text-[#919191]">{storeCategory}</p>
           <div className="relative flex items-center gap-[8px]">
             <h1 className="text-[20px] font-semibold text-black leading-[32px]">
-              {name}
+              {storeName}
             </h1>
-            {badgeText && <MainTag text={badgeText} />}
+            {representativeTag && <MainTag text={representativeTag} />}
           </div>
         </div>
 
-        {/* 주소 */}
-        <p className="text-xs font-medium text-[#919191]">{address}</p>
+        <p className="text-xs font-medium text-[#919191]">{storeAddress}</p>
 
-        {/* 영업시간 + 찜 아이콘 */}
+        {/* 영업시간 + 찜 */}
         <div className="flex justify-between items-start w-full">
           <div className="flex items-center gap-[12px] self-stretch">
-            <BusinessHours weekly={weekly} />
+            <BusinessHours weekly={storeWeeklyOpeningHours ?? undefined} />
           </div>
           <div className="flex justify-end items-center gap-[8px]">
             <button onClick={handleLikeClick} className="cursor-pointer">
@@ -110,20 +97,18 @@ const StoreDetailInfo: React.FC<StoreDetailInfoProps> = ({
           </div>
         </div>
 
-        {/* 수정요청 버튼 + 업데이트 날짜 */}
+        {/* 수정요청 + 업데이트일 */}
         <div className="flex gap-[8px] items-end">
-          {storeId !== undefined && (
-            <RequestEditButton
-              storeId={storeId}
-              storeInfo={{
-                name,
-                category,
-                mapComponent: <StoreDetailMap store={store} />
-              }}
-            />
-          )}
+          <RequestEditButton
+            storeId={storeId}
+            storeInfo={{
+              name: storeName,
+              category: storeCategory,
+              mapComponent: <StoreDetailMap store={store} />,
+            }}
+          />
           <p className="text-xs font-medium text-[#C3C3C3]">
-            업데이트 {dayjs(updatedDate).format('YYYY.MM.DD')}
+            업데이트 {dayjs(storeUpdatedDate).format('YYYY.MM.DD')}
           </p>
         </div>
       </div>

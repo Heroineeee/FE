@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import axios from '@/api/axiosInstance';
 import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import StoreDetailMap from '@/components/StoreDetail/StoreDetailMap';
 import StoreDetailInfo from '@/components/StoreDetail/StoreDetailInfo';
 import Header from '@/components/Header';
@@ -10,35 +11,41 @@ import { trackViewStoreDetail, trackScrollDepth } from '@/analytics/ga';
 
 const StoreDetailPage = () => {
   const { storeId } = useParams<{ storeId: string }>();
+  const queryClient = useQueryClient();
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
 
-  const [store, setStore] = useState<StoreDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
   // 리뷰PR 커밋용 주석 열기
-  // 가맹점 상세 정보 불러오기
-  const fetchStoreDetail = async () => {
-    try {
+  // 가맹점 상세 정보 불러오기 (TanStack Query 사용)
+  const {
+    data: store,
+    isLoading: loading,
+    isError: error,
+  } = useQuery<StoreDetail & { isScrapped?: boolean | null }>({
+    queryKey: ['store', storeId],
+    queryFn: async () => {
       const res = await axios.get(`/api/v1/store/${storeId}`);
       const storeData = res.data.results;
       console.log('대표 태그:', storeData.representativeTag);
+      return storeData as StoreDetail & { isScrapped?: boolean | null };
+    },
+    enabled: !!storeId,
+    staleTime: 5 * 60 * 1000, // 5분간 캐시 유지
+    gcTime: 10 * 60 * 1000, // 10분간 메모리에 유지
+  });
 
-      setStore(storeData);
-      setIsLiked(storeData.isScrapped === true);
-      setLikeCount(storeData.storeScrapCount ?? 0);
-    } catch (err) {
-      console.error('가맹점 정보를 불러오는데 실패했습니다.', err);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // store 데이터가 변경될 때 isLiked와 likeCount 업데이트
   useEffect(() => {
-    if (storeId) fetchStoreDetail();
-  }, [storeId]);
+    if (store) {
+      setIsLiked(store.isScrapped === true);
+      setLikeCount(store.storeScrapCount ?? 0);
+    }
+  }, [store]);
+
+  // 리뷰 작성 후 상세 정보 다시 불러오기
+  const handleReviewChange = () => {
+    queryClient.invalidateQueries({ queryKey: ['store', storeId] });
+  };
 
   // 상세 페이지 조회 이벤트 태깅
   useEffect(() => {
@@ -75,9 +82,30 @@ const StoreDetailPage = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [store]);
 
-  if (error || !store) return;
-
   // 리뷰PR 커밋용 주석 닫기
+
+  // 로딩 중이거나 에러 발생 시 처리
+  if (loading) {
+    return (
+      <div className="font-pretendard">
+        <Header className="bg-white" />
+        <div className="flex items-center justify-center min-h-[400px]">
+          <p>로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !store) {
+    return (
+      <div className="font-pretendard">
+        <Header className="bg-white" />
+        <div className="flex items-center justify-center min-h-[400px]">
+          <p>가맹점 정보를 불러오는데 실패했습니다.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="font-pretendard">
@@ -98,7 +126,7 @@ const StoreDetailPage = () => {
       />
 
       <StoreDetailMap store={store} />
-      <StoreDetailReview store={store} onReviewChange={fetchStoreDetail} />
+      <StoreDetailReview store={store} onReviewChange={handleReviewChange} />
     </div>
   );
 };

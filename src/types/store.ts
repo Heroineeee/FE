@@ -79,6 +79,7 @@ export interface StoreDetail {
   representativeTag: string | null;
   storeWeeklyOpeningHours: WeeklyHours | null;
   storeScrapCount: number;
+  isScrapped?: boolean | null; // 찜하기 여부
   storeUpdatedDate: string;
   storeReviewCount: number;
   storeRating: number;

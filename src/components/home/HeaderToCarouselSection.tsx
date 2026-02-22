@@ -3,6 +3,7 @@ import Icons from '@/assets/icons';
 import SearchInput from '@/components/common/SearchInput';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import CarouselBanner from '@/components/home/CarouselBanner';
 import { useGps } from '@/contexts/GpsContext';
 import axiosInstance from '@/api/axiosInstance';
@@ -14,77 +15,77 @@ const bgColors = ['#F3F5ED', '#F4F6F8', '#F3F5ED'];
 function HeaderToCarouselSection() {
   const [inputValue, setInputValue] = useState('');
   const [activeSlide, setActiveSlide] = useState(0);
+  const [submittedSearchTerm, setSubmittedSearchTerm] = useState<string | null>(null);
   const navigate = useNavigate();
-  const swiperRef = useRef<any>(null); // Swiper에 대한 ref
+  const swiperRef = useRef<any>(null);
 
   const { address, requestGps, location: gpsLocation } = useGps();
 
-  const handleSearch = async () => {
-    const searchTerm = inputValue.trim();
-    if (!searchTerm) return;
-
-    try {
-      const params: any = { keyword: searchTerm, size: 2 };
-      if (gpsLocation && gpsLocation.latitude && gpsLocation.longitude) {
+  const { data: searchStores, isError: isSearchError } = useQuery<Store[]>({
+    queryKey: ['storeMapSearch', submittedSearchTerm, gpsLocation],
+    queryFn: async () => {
+      const params: Record<string, unknown> = { keyword: submittedSearchTerm!, size: 2 };
+      if (gpsLocation?.latitude != null && gpsLocation?.longitude != null) {
         params.latitude = gpsLocation.latitude;
         params.longitude = gpsLocation.longitude;
-        params.radius = 20000; // GPS 위치 기반 20km 반경
+        params.radius = 20000;
       }
+      const response = await axiosInstance.get('/api/v1/store/map', { params });
+      return response.data.results?.content || [];
+    },
+    enabled: !!submittedSearchTerm,
+    staleTime: 0,
+    retry: false,
+  });
 
-      const response = await axiosInstance.get('/api/v1/store/map', {
-        params,
+  const navigateToMapWithTerm = (term: string) => {
+    const isAddress = /동$|구$|역$/.test(term);
+    if (isAddress) {
+      navigate('/store-map', { state: { searchTerm: term } });
+    } else {
+      navigate('/store-map', {
+        state: {
+          searchTerm: term,
+          center: gpsLocation
+            ? { lat: gpsLocation.latitude, lng: gpsLocation.longitude }
+            : null,
+        },
       });
-
-      const stores: Store[] = response.data.results?.content || [];
-      const uniqueStores = stores.filter(
-        (store, index, self) =>
-          index === self.findIndex((s) => s.id === store.id),
-      );
-
-      // 검색 이벤트 태깅
-      trackSearchStore(searchTerm, uniqueStores.length);
-
-      // GTM이 이벤트를 처리할 시간을 주기 위해 약간의 지연
-      setTimeout(() => {
-        if (
-          uniqueStores.length === 1 &&
-          uniqueStores[0].name.toLowerCase().replace(/\s/g, '') ===
-            searchTerm.toLowerCase().replace(/\s/g, '')
-        ) {
-          console.log('상세페이지로 이동:', uniqueStores[0].id);
-          navigate(`/store/${uniqueStores[0].id}`);
-        } else {
-          const isAddress = /동$|구$|역$/.test(searchTerm);
-          if (isAddress) {
-            navigate('/store-map', { state: { searchTerm } });
-          } else {
-            navigate('/store-map', {
-              state: {
-                searchTerm,
-                center: gpsLocation
-                  ? { lat: gpsLocation.latitude, lng: gpsLocation.longitude }
-                  : null,
-              },
-            });
-          }
-        }
-      }, 100);
-    } catch (error) {
-      console.error('Search failed, navigating to map page as fallback', error);
-      const isAddress = /동$|구$|역$/.test(inputValue);
-      if (isAddress) {
-        navigate('/store-map', { state: { searchTerm: inputValue } });
-      } else {
-        navigate('/store-map', {
-          state: {
-            searchTerm: inputValue,
-            center: gpsLocation
-              ? { lat: gpsLocation.latitude, lng: gpsLocation.longitude }
-              : null,
-          },
-        });
-      }
     }
+  };
+
+  useEffect(() => {
+    if (isSearchError && submittedSearchTerm !== null) {
+      navigateToMapWithTerm(submittedSearchTerm);
+      setSubmittedSearchTerm(null);
+    }
+  }, [isSearchError, submittedSearchTerm]);
+
+  useEffect(() => {
+    if (!searchStores || submittedSearchTerm === null) return;
+    const uniqueStores = searchStores.filter(
+      (store, index, self) => index === self.findIndex((s) => s.id === store.id),
+    );
+    trackSearchStore(submittedSearchTerm, uniqueStores.length);
+    const term = submittedSearchTerm;
+    setSubmittedSearchTerm(null);
+
+    setTimeout(() => {
+      if (
+        uniqueStores.length === 1 &&
+        uniqueStores[0].name.toLowerCase().replace(/\s/g, '') === term.toLowerCase().replace(/\s/g, '')
+      ) {
+        navigate(`/store/${uniqueStores[0].id}`);
+      } else {
+        navigateToMapWithTerm(term);
+      }
+    }, 100);
+  }, [searchStores, submittedSearchTerm, navigate, gpsLocation]);
+
+  const handleSearch = () => {
+    const term = inputValue.trim();
+    if (!term) return;
+    setSubmittedSearchTerm(term);
   };
 
   // Swiper 초기화 지연 처리

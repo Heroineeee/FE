@@ -32,6 +32,7 @@ const StoreSearchPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const isLoggedIn = useSelector((state: RootState) => state.user.isLoggedIn);
+  
 
   const {
     address: gpsAddress,
@@ -50,6 +51,7 @@ const StoreSearchPage = () => {
   const [sort, setSort] = useState('가까운 순');
   const [stores, setStores] = useState<Store[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
 
   // 페이징/스크롤 관련 ref
   const pageRef = useRef(0);
@@ -197,6 +199,7 @@ const StoreSearchPage = () => {
         if (mySeq === requestSeqRef.current) {
           isLoadingRef.current = false;
           setIsLoading(false);
+          setHasFetchedOnce(true);
         }
       }
     },
@@ -253,6 +256,8 @@ const StoreSearchPage = () => {
     await handleSearch(inputValue, gpsLocation, true);
   };
 
+  const showEmpty = hasFetchedOnce && !isLoading && stores.length === 0;
+
   return (
     <div className="real-vh">
       <div className="flex flex-col items-center w-full shadow-bottom shrink-0">
@@ -279,7 +284,9 @@ const StoreSearchPage = () => {
         />
       </div>
 
-      {!isLoading && stores.length === 0 ? (
+      
+
+      {showEmpty ? (
         <div className="flex items-center justify-center h-[calc(var(--vh,1vh)*100-240px)]">
           {searchTerm && !isLocation ? (
             <NoSearchResults type="search" query={searchTerm} />

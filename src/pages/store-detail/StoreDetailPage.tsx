@@ -8,6 +8,7 @@ import Header from '@/components/Header';
 import StoreDetailReview from '@/components/StoreDetail/StoreDetailReview';
 import { StoreDetail } from '@/types/store';
 import { trackViewStoreDetail, trackScrollDepth } from '@/analytics/ga';
+import QueryBoundary from '@/components/common/QueryBoundary';
 
 const StoreDetailPage = () => {
   const { storeId } = useParams<{ storeId: string }>();
@@ -84,49 +85,48 @@ const StoreDetailPage = () => {
 
   // 리뷰PR 커밋용 주석 닫기
 
-  // 로딩 중이거나 에러 발생 시 처리
-  if (loading) {
-    return (
-      <div className="font-pretendard">
-        <Header className="bg-white" />
-        <div className="flex items-center justify-center min-h-[400px]">
-          <p>로딩 중...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !store) {
-    return (
-      <div className="font-pretendard">
-        <Header className="bg-white" />
-        <div className="flex items-center justify-center min-h-[400px]">
-          <p>가맹점 정보를 불러오는데 실패했습니다.</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="font-pretendard">
       <Header className="bg-white" />
-      <StoreDetailInfo
-        store={store}
-        storeId={store.storeId}
-        category={store.storeCategory}
-        name={store.storeName}
-        address={store.storeAddress}
-        badgeText={store.representativeTag ?? undefined}
-        isLiked={isLiked}
-        setIsLiked={setIsLiked}
-        favoriteCount={likeCount}
-        setLikeCount={setLikeCount}
-        weekly={store.storeWeeklyOpeningHours ?? undefined}
-        updatedDate={store.storeUpdatedDate}
-      />
+      <QueryBoundary
+        isLoading={loading}
+        isError={!!error}
+        isEmpty={!store}
+        loadingFallback={
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="h-10 w-10 rounded-full border-4 border-gray-200 border-t-gray-900 animate-spin" />
+          </div>
+        }
+        errorFallback={
+          <div className="flex items-center justify-center min-h-[400px]">
+            <p>가맹점 정보를 불러오는데 실패했습니다.</p>
+          </div>
+        }
+      >
+      {store && (
+        <>
+          <StoreDetailInfo
+            store={store}
+            storeId={store.storeId}
+            category={store.storeCategory}
+            name={store.storeName}
+            address={store.storeAddress}
+            badgeText={store.representativeTag ?? undefined}
+            isLiked={isLiked}
+            setIsLiked={setIsLiked}
+            favoriteCount={likeCount}
+            setLikeCount={setLikeCount}
+            weekly={store.storeWeeklyOpeningHours ?? undefined}
+            updatedDate={store.storeUpdatedDate}
+          />
 
-      <StoreDetailMap store={store} />
-      <StoreDetailReview store={store} onReviewChange={handleReviewChange} />
+          <StoreDetailMap store={store} />
+          <StoreDetailReview store={store} onReviewChange={handleReviewChange} />
+        </>
+      )}
+    </QueryBoundary>
+      
     </div>
   );
 };

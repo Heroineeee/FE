@@ -5,6 +5,7 @@ import {
   useCallback,
   useLayoutEffect,
 } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import axiosInstance from '@/api/axiosInstance';
 import Header from '@/components/Header';
 import SearchInput from '@/components/common/SearchInput';
@@ -44,17 +45,17 @@ const StoreSearchPage = () => {
   // 초기화 가드들
   const initDoneRef = useRef(false); // 초기 카테고리 확정 전엔 fetch 막기
   const didInitCategoryRef = useRef(false); // StrictMode 2회 호출 차단
-  const requestSeqRef = useRef(0); // 구요청 응답 무시용 시퀀스
 
   // UI 표시용 상태
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');
   const [sort, setSort] = useState('가까운 순');
-  const [stores, setStores] = useState<Store[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+  const [gpsOverride, setGpsOverride] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
-  // 페이징/스크롤 관련 ref
-  const pageRef = useRef(0);
+  // 페이징/스크롤 관련 ref (React Query 상태와 동기화)
   const hasNextPageRef = useRef(true);
   const isLoadingRef = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -104,21 +105,9 @@ const StoreSearchPage = () => {
     trackFilterSearch('sort', sort);
   }, [sort]);
 
-  // 3) 데이터 페치 함수 (force 옵션 + 구요청 응답 무시)
-  const fetchStores = useCallback(
-    async (params?: any, options: { force?: boolean } = {}) => {
-      const { force = false } = options;
-
-      // 로딩 중인데 강제요청이 아니라면 스킵
-      if (isLoadingRef.current && !force) return;
-
-      isLoadingRef.current = true;
-      setIsLoading(true);
-
-      // 요청 시퀀스 번호 부여
-      const mySeq = ++requestSeqRef.current;
-
-      const page = pageRef.current;
+  // 3) 리스트 요청 파라미터 생성 함수
+  const buildRequestParams = useCallback(
+    (page: number) => {
       const requestParams: any = {
         page,
         size: 10,
@@ -130,14 +119,12 @@ const StoreSearchPage = () => {
         requestParams.category = categoryMapping[selectedCategory];
       }
 
-      // override 병합 (이번 요청에 반드시 쓸 파라미터)
-      if (params) Object.assign(requestParams, params);
-
-      // undefined/null 값은 쿼리에서 제거
-      if (requestParams.category == null) delete requestParams.category;
-
-      // 위치/검색어 기본 로직: override에 없는 경우에만 채움
-      if (!params) {
+      // GPS 버튼으로 강제 좌표가 설정된 경우
+      if (gpsOverride) {
+        requestParams.latitude = gpsOverride.latitude;
+        requestParams.longitude = gpsOverride.longitude;
+      } else {
+        // 위치/검색어 기본 로직
         if (searchTerm) {
           if (isLocation && coordinates) {
             requestParams.latitude = coordinates.latitude;
@@ -164,85 +151,105 @@ const StoreSearchPage = () => {
         }
       }
 
+      // undefined/null 값은 쿼리에서 제거
+      if (requestParams.category == null) delete requestParams.category;
+
+      return requestParams;
+    },
+    [
+      sort,
+      selectedCategory,
+      gpsOverride,
+      searchTerm,
+      isLocation,
+      coordinates,
+      gpsLocation,
+    ],
+  );
+
+  type StoreListPage = {
+    stores: Store[];
+    isLastPage: boolean;
+  };
+
+  // 4) React Query useInfiniteQuery로 리스트 관리
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<StoreListPage>({
+    queryKey: [
+      'storeList',
+      selectedCategory,
+      sort,
+      searchTerm,
+      isLocation,
+      coordinates,
+      gpsLocation,
+      gpsOverride ? [gpsOverride.latitude, gpsOverride.longitude] : null,
+    ],
+    queryFn: async ({ pageParam = 0 }) => {
+      const requestParams = buildRequestParams(pageParam as number);
       try {
         const res = await axiosInstance.get('/api/v1/store/list', {
           params: requestParams,
         });
 
-        // 구요청 응답은 무시
-        if (mySeq !== requestSeqRef.current) return;
-
-        const newStores = res.data.results?.content || [];
+        const results = res.data.results;
+        const newStores = results?.content || [];
         const isLastPage =
-          res.data.results?.totalPage <= res.data.results?.currentPage + 1;
+          results?.totalPage <= (results?.currentPage ?? 0) + 1;
 
         // 검색 이벤트 태깅 (첫 페이지일 때만)
-        if (page === 0 && searchTerm) {
+        if (pageParam === 0 && searchTerm) {
           trackSearchStore(searchTerm, newStores.length);
         }
 
-        setStores((prev: Store[]) => {
-          const merged: Store[] =
-            page === 0 ? newStores : [...prev, ...newStores];
-          return Array.from(new Map(merged.map((s) => [s.id, s])).values());
-        });
-
-        hasNextPageRef.current = !isLastPage;
+        return { stores: newStores, isLastPage };
       } catch (err) {
-        // 구요청 에러는 무시
-        if (mySeq === requestSeqRef.current) {
-          console.error('가게 목록 불러오기 실패:', err);
-          if (page === 0) setStores([]);
-          hasNextPageRef.current = false;
-        }
-      } finally {
-        if (mySeq === requestSeqRef.current) {
-          isLoadingRef.current = false;
-          setIsLoading(false);
-          setHasFetchedOnce(true);
-        }
+        console.error('가게 목록 불러오기 실패:', err);
+        throw err;
       }
     },
-    [selectedCategory, sort, isLocation, coordinates, searchTerm, gpsLocation],
-  );
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.isLastPage ? undefined : allPages.length,
+    enabled: initDoneRef.current && isLocationReady,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
 
-  // 4) 공통 reset + fetch (강제요청) - 파라미터 없이 호출
-  const resetAndFetch = () => {
-    pageRef.current = 0;
-    hasNextPageRef.current = true;
-    setStores([]);
-    fetchStores(undefined, { force: true }); // ← params 넘기지 않음
-  };
+  const stores =
+    data?.pages.flatMap((page) => page.stores) ?? [];
 
-  // 5) effect에서도 파라미터 제거
+  // React Query 상태를 무한 스크롤 훅에 맞게 ref로 동기화
   useEffect(() => {
-    if (!initDoneRef.current) return;
-    if (!isLocationReady) return;
-    resetAndFetch(); // ← { category: ... } 넘기지 않음
-  }, [
-    selectedCategory,
-    sort,
-    isLocation,
-    coordinates,
-    searchTerm,
-    isLocationReady,
-    fetchStores,
-  ]);
+    isLoadingRef.current = isLoading || isFetchingNextPage;
+  }, [isLoading, isFetchingNextPage]);
+
+  useEffect(() => {
+    hasNextPageRef.current = !!hasNextPage;
+  }, [hasNextPage]);
+
+  // 최초 한 번이라도 페치가 완료되었는지 여부
+  useEffect(() => {
+    if (data) {
+      setHasFetchedOnce(true);
+    }
+  }, [data]);
 
   // GPS 버튼은 좌표만 진짜로 바꿔야 하니 그대로 override 허용
   const handleGpsClick = useGpsFetch((lat, lng) => {
-    pageRef.current = 0;
-    hasNextPageRef.current = true;
-    setStores([]);
-    fetchStores({ latitude: lat, longitude: lng }, { force: true });
+    setGpsOverride({ latitude: lat, longitude: lng });
   }, requestGps);
 
   // 무한 스크롤
   const { loaderRef } = useInfiniteScroll({
     onIntersect: () => {
-      if (isLocationReady) {
-        pageRef.current += 1;
-        fetchStores();
+      if (isLocationReady && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
       }
     },
     isLoadingRef,

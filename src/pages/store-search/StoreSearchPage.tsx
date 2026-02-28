@@ -254,7 +254,7 @@ const StoreSearchPage = () => {
     },
     isLoadingRef,
     hasNextPageRef,
-    root: null,
+    root: scrollContainerRef.current,
     threshold: 0.1,
   });
 

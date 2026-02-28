@@ -4,93 +4,96 @@ import AlarmIcon from '@/assets/icons/system/alarm.svg';
 import SearchIcon from '@/assets/icons/system/search-black.svg';
 import PopularPosts from '@/components/Community/PopularPosts';
 import Dropdown from '@/components/common/Dropdown';
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import axiosInstance from '@/api/axiosInstance';
 import PostItem, { Post } from '@/components/Community/PostItem';
 import useInfiniteScroll from '@/hooks/useInfiniteScroll';
-import Icon from '@/assets/icons';
 import MenuBar from '@/components/common/MenuBar';
+import { useInfiniteQuery } from '@tanstack/react-query';
+
+const categoryMap: Record<string, string> = {
+  전체: '',
+  복지정보: 'WELFARE_INFO',
+  잡담해요: 'CHITCHAT',
+  '양육/육아': 'PARENTING',
+  '문의/도움': 'QUESTION_HELP',
+  생활꿀팁: 'LIFE_TIP',
+  '칭찬/감사': 'APPRECIATION',
+  기타: 'ETC',
+};
+
+type CommunityPostPage = {
+  content: Post[];
+  totalPages: number;
+  totalElements: number;
+  last: boolean;
+  first: boolean;
+  number: number; // current page (0-based)
+  size: number;
+  numberOfElements: number;
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+  };
+};
 
 const CommunityPage = () => {
   const navigate = useNavigate();
-  const [posts, setPosts] = useState([]);
-  const [page, setPage] = useState(0);
+
   const [selectedCategory, setSelectedCategory] = useState('전체');
 
-  const pageRef = useRef(0);
-  const hasNextPageRef = useRef(true);
-  const isLoadingRef = useRef(false);
   // 메뉴 열림/닫힘 상태 관리
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const closeMenu = () => setIsMenuOpen(false);
 
-  // 메뉴 열기/닫기 함수
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
+  const {
+    data,
+    isLoading,
+    isError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch,
+  } = useInfiniteQuery<CommunityPostPage>({
+    queryKey: ['communityPosts', selectedCategory],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const categoryEnum = categoryMap[selectedCategory];
 
-  const closeMenu = () => {
-    setIsMenuOpen(false);
-  };
-
-  const categoryMap: Record<string, string> = {
-    전체: '',
-    복지정보: 'WELFARE_INFO',
-    잡담해요: 'CHITCHAT',
-    '양육/육아': 'PARENTING',
-    '문의/도움': 'QUESTION_HELP',
-    생활꿀팁: 'LIFE_TIP',
-    '칭찬/감사': 'APPRECIATION',
-    기타: 'ETC',
-  };
-
-  const fetchPosts = async (
-    categoryText: string,
-    page: number,
-    size?: number,
-  ) => {
-    if (isLoadingRef.current) return;
-    isLoadingRef.current = true;
-
-    try {
-      const categoryEnum = categoryMap[categoryText];
-      const params: any = { page, size };
-      if (categoryEnum) {
-        params.category = categoryEnum;
-      }
+      const params: any = { page: pageParam, size: 10 };
+      if (categoryEnum) params.category = categoryEnum;
 
       const res = await axiosInstance.get('/api/v1/community/post', { params });
+      return res.data.results.results as CommunityPostPage;
+    },
+    getNextPageParam: (lastPage) => {
+      return lastPage.last ? undefined : lastPage.number + 1;
+    },
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+  });
 
-      const data = res.data.results.results;
-      setPosts((prev) =>
-        page === 0 ? data.content : [...prev, ...data.content],
-      );
+  // pages -> posts flatten
+  const posts: Post[] = useMemo(() => {
+    return data?.pages.flatMap((p) => p.content) ?? [];
+  }, [data]);
 
-      hasNextPageRef.current = page + 1 < data.totalPages;
-    } catch (err) {
-      console.error('게시글 가져오기 실패', err);
-    } finally {
-      isLoadingRef.current = false;
-    }
-  };
+  // useInfiniteScroll 훅이 ref 기반이라 동기화
+  const isLoadingRef = useRef(false);
+  const hasNextPageRef = useRef(true);
 
   useEffect(() => {
-    fetchPosts(selectedCategory, page);
-  }, [selectedCategory, page]);
+    isLoadingRef.current = isLoading || isFetchingNextPage;
+  }, [isLoading, isFetchingNextPage]);
 
   useEffect(() => {
-  console.log('[posts 데이터]', posts);
-}, [posts]);
+    hasNextPageRef.current = !!hasNextPage;
+  }, [hasNextPage]);
 
   const { loaderRef } = useInfiniteScroll({
     onIntersect: () => {
-      if (hasNextPageRef.current) {
-        pageRef.current += 1;
-        console.log(
-          '[찾기페이지 useInfiniteScroll] 다음 페이지 로드:',
-          pageRef.current,
-        );
-        setPage(pageRef.current);
-      }
+      if (!hasNextPageRef.current) return;
+      fetchNextPage();
     },
     isLoadingRef,
     hasNextPageRef,
@@ -116,26 +119,27 @@ const CommunityPage = () => {
           paddingX="px-[15px]"
           rightType="custom"
           showBackButton={true}
-          showHomeButton = {true}
+          showHomeButton={true}
           onBack={() => navigate('/')}
-          centerTitle = {true}
+          centerTitle={true}
           customRightElement={
             <div className="flex gap-[14px] items-center">
               <img
                 src={AlarmIcon}
-                onClick={() => navigate('/notification')} 
+                onClick={() => navigate('/notification')}
                 className="w-[18px] h-[20px] cursor-pointer"
               />
               <img
                 src={SearchIcon}
-                onClick={() => navigate('/community/search')} 
+                onClick={() => navigate('/community/search')}
                 className="w-[20px] h-[20px] cursor-pointer"
               />
-           
             </div>
           }
         />
+
         <PopularPosts />
+
         <div className="flex justify-end pr-[20px]">
           <Dropdown
             options={[
@@ -150,13 +154,33 @@ const CommunityPage = () => {
             ]}
             onSelect={(categoryText) => {
               setSelectedCategory(categoryText);
-              setPage(0); // 새로운 카테고리 선택 시 첫 페이지로 초기화
+           
             }}
           />
         </div>
+
+        {/* 상태 UI */}
+        {isLoading && <div className="px-[20px] py-[10px]">로딩중...</div>}
+
+        {isError && (
+          <div className="px-[20px] py-[10px]">
+            로딩 실패
+            <button className="ml-2 underline" onClick={() => refetch()}>
+              다시 시도
+            </button>
+          </div>
+        )}
+
         <PostList posts={posts} />
+
+        {/* sentinel */}
         <div ref={loaderRef} style={{ height: 20 }} />
+
+        {isFetchingNextPage && (
+          <div className="px-[20px] py-[10px]">더 불러오는 중...</div>
+        )}
       </div>
+
       <MenuBar isOpen={isMenuOpen} onClose={closeMenu} />
     </>
   );

@@ -5,41 +5,14 @@ import SearchIcon from '@/assets/icons/system/search-black.svg';
 import PopularPosts from '@/components/Community/PopularPosts';
 import Dropdown from '@/components/common/Dropdown';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import axiosInstance from '@/api/axiosInstance';
 import PostItem, { Post } from '@/components/Community/PostItem';
 import useInfiniteScroll from '@/hooks/useInfiniteScroll';
 import MenuBar from '@/components/common/MenuBar';
-import { useInfiniteQuery } from '@tanstack/react-query';
 
-const categoryMap: Record<string, string> = {
-  전체: '',
-  복지정보: 'WELFARE_INFO',
-  잡담해요: 'CHITCHAT',
-  '양육/육아': 'PARENTING',
-  '문의/도움': 'QUESTION_HELP',
-  생활꿀팁: 'LIFE_TIP',
-  '칭찬/감사': 'APPRECIATION',
-  기타: 'ETC',
-};
-
-type CommunityPostPage = {
-  content: Post[];
-  totalPages: number;
-  totalElements: number;
-  last: boolean;
-  first: boolean;
-  number: number; // current page (0-based)
-  size: number;
-  numberOfElements: number;
-  pageable: {
-    pageNumber: number;
-    pageSize: number;
-  };
-};
+import { useCommunityPosts } from '@/hooks/useCommunityPosts';
 
 const CommunityPage = () => {
   const navigate = useNavigate();
-
   const [selectedCategory, setSelectedCategory] = useState('전체');
 
   // 메뉴 열림/닫힘 상태 관리
@@ -54,24 +27,7 @@ const CommunityPage = () => {
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useInfiniteQuery<CommunityPostPage>({
-    queryKey: ['communityPosts', selectedCategory],
-    initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      const categoryEnum = categoryMap[selectedCategory];
-
-      const params: any = { page: pageParam, size: 10 };
-      if (categoryEnum) params.category = categoryEnum;
-
-      const res = await axiosInstance.get('/api/v1/community/post', { params });
-      return res.data.results.results as CommunityPostPage;
-    },
-    getNextPageParam: (lastPage) => {
-      return lastPage.last ? undefined : lastPage.number + 1;
-    },
-    staleTime: 60_000,
-    gcTime: 10 * 60_000,
-  });
+  } = useCommunityPosts(selectedCategory, 10);
 
   // pages -> posts flatten
   const posts: Post[] = useMemo(() => {
@@ -154,7 +110,7 @@ const CommunityPage = () => {
             ]}
             onSelect={(categoryText) => {
               setSelectedCategory(categoryText);
-           
+     
             }}
           />
         </div>

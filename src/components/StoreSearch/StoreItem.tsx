@@ -22,7 +22,12 @@ const StoreItem = ({ store }: StoreItemProps) => {
   }, [store.id, store.name, store.isScrapped, store.scrapCount]);
 
   const handleLikeClick = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // 클릭 이벤트 전파 방지
+    e.stopPropagation();
+    if (import.meta.env.VITE_DEMO_MODE === 'true') {
+      setIsLiked(!isLiked);
+      setLikeCount((count) => Math.max(0, count + (isLiked ? -1 : 1)));
+      return;
+    } // 클릭 이벤트 전파 방지
 
     const token = localStorage.getItem('accessToken');
     if (!token) {
@@ -33,7 +38,7 @@ const StoreItem = ({ store }: StoreItemProps) => {
     try {
       const response = await axiosInstance({
         method: isLiked ? 'delete' : 'post',
-        url: `https://kkinikong.store/api/v1/store/scrap/${store.id}`,
+        url: `/api/v1/store/scrap/${store.id}`,
       });
 
       if (response.data.isSuccess) {

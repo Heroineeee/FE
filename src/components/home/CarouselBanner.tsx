@@ -61,22 +61,29 @@ export default function CarouselBanner({
     {
       content: (
         <div className="pl-[16px] font-semibold text-title-sb-button flex flex-col gap-[12px] justify-center align-self-stretch">
-          <div className="text-text-gray flex flex-col leading-[20px]">
-            <span>
-              현재는{' '}
-              <span className="text-sub-color">
-                서울, 인천 외 {regionCount}개 지역
+          {import.meta.env.VITE_DEMO_MODE === 'true' ? (
+            <div className="text-text-gray flex flex-col leading-[20px]">
+              <span>포트폴리오용 <span className="text-sub-color">가맹점 시연 버전</span>입니다.</span>
+              <span>예시 가맹점 검색과 상세 조회를 체험해 보세요.</span>
+            </div>
+          ) : (
+            <div className="text-text-gray flex flex-col leading-[20px]">
+              <span>
+                현재는{' '}
+                <span className="text-sub-color">
+                  서울, 인천 외 {regionCount}개 지역
+                </span>
+                만 제공되며,{' '}
               </span>
-              만 제공되며,{' '}
-            </span>
-            <span>다른 지역은 요청이 많은 순으로 추가될 예정이에요.</span>
-          </div>
+              <span>다른 지역은 요청이 많은 순으로 추가될 예정이에요.</span>
+            </div>
+          )}
 
           <button
             className="px-[16px] w-[113px] h-[28px] bg-main-color text-white rounded-[12px] text-body-md-title font-regular items-center flex gap-[8px]"
-            onClick={onOpenRegionBottomSheet}
+            onClick={import.meta.env.VITE_DEMO_MODE === 'true' ? () => navigate('/store-search') : onOpenRegionBottomSheet}
           >
-            전체 지역 보기
+            {import.meta.env.VITE_DEMO_MODE === 'true' ? '가맹점 둘러보기' : '전체 지역 보기'}
           </button>
         </div>
       ),

@@ -12,11 +12,16 @@ function HomePage() {
 
   useEffect(() => {
     const hidden = localStorage.getItem('hideRegionUpdateDialog');
-    if (hidden !== 'true') setOpenDialog(true);
+    if (import.meta.env.VITE_DEMO_MODE !== 'true' && hidden !== 'true') setOpenDialog(true);
   }, []);
 
   return (
     <>
+      {import.meta.env.VITE_DEMO_MODE === 'true' && (
+        <div className="bg-[#F3F5ED] px-5 py-2 text-center text-xs text-[#496844]">
+          취업 포트폴리오 시연용 · 아래 가맹점과 후기는 예시 데이터입니다.
+        </div>
+      )}
       <div className="flex flex-col font-pretendard pb-[61px]">
         <HeaderToCarouselSection />
         <QuickActionButtons />

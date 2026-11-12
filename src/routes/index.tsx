@@ -84,11 +84,11 @@ const Router = () => {
 
       <Route
         path="/convenience/post/:postId"
-        element={<ConvenienceDetailPage />}
+        element={isDemo ? <DemoUnavailablePage feature="편의점" /> : <ConvenienceDetailPage />}
       />
       <Route
         path="/convenience/name-recommendation"
-        element={<NameRecommendationPage />}
+        element={isDemo ? <DemoUnavailablePage feature="편의점" /> : <NameRecommendationPage />}
       />
 
       {/*커뮤니티*/}

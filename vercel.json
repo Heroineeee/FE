@@ -33,6 +33,6 @@
       ]
     }
   ],
-  "buildCommand": "VITE_DEMO_MODE=true npm run build",
+  "buildCommand": "VITE_DEMO_MODE=true npm run build:demo",
   "framework": "vite"
 }

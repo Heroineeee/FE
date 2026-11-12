@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import axios from '@/api/axiosInstance';
 import { useEffect, useState } from 'react';
 import StoreDetailMap from '@/components/StoreDetail/StoreDetailMap';
@@ -97,7 +97,16 @@ const StoreDetailPage = () => {
         updatedDate={store.storeUpdatedDate}
       />
 
-      <StoreDetailMap store={store} />
+      {import.meta.env.VITE_DEMO_MODE === 'true' ? (
+        <div className="mx-4 flex h-[224px] flex-col items-center justify-center gap-3 rounded-xl border border-[#CDE6C8] bg-[#F3F9EF] px-4 text-center">
+          <p className="text-base font-semibold text-[#496844]">샘플 가맹점 위치</p>
+          <p className="text-sm text-main-gray">{store.storeAddress}</p>
+          <p className="text-xs text-main-gray">실제 지도 및 영업 정보가 아닌 포트폴리오 시연 데이터입니다.</p>
+          <Link to="/store-map" className="rounded-xl bg-[#65CE58] px-4 py-2 text-sm font-semibold text-white">가맹점 위치 개략도 보기</Link>
+        </div>
+      ) : (
+        <StoreDetailMap store={store} />
+      )}
       <StoreDetailReview store={store} onReviewChange={fetchStoreDetail} />
     </div>
   );

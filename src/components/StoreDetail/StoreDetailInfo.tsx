@@ -44,6 +44,11 @@ const StoreDetailInfo: React.FC<StoreDetailInfoProps> = ({
   const [pendingPath, setPendingPath] = useState<string | null>(null);
 
   const handleLikeClick = async () => {
+    if (import.meta.env.VITE_DEMO_MODE === 'true') {
+      setIsLiked(!isLiked);
+      setLikeCount(Math.max(0, favoriteCount + (isLiked ? -1 : 1)));
+      return;
+    }
     const token = localStorage.getItem('accessToken');
 
     if (!token) {
@@ -113,7 +118,7 @@ const StoreDetailInfo: React.FC<StoreDetailInfoProps> = ({
         {/* 수정요청 버튼 + 업데이트 날짜 */}
         <div className="flex justify-between">
           <div className="flex gap-[8px] items-end">
-            {storeId !== undefined && (
+            {storeId !== undefined && import.meta.env.VITE_DEMO_MODE !== 'true' && (
               <RequestEditButton
                 storeId={storeId}
                 storeInfo={{

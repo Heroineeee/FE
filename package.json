@@ -12,7 +12,8 @@
     "test": "jest",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "dev:all": "concurrently \"npm run dev\" \"npm run storybook\""
+    "dev:all": "concurrently \"npm run dev\" \"npm run storybook\"",
+    "build:demo": "vite build"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.6.1",

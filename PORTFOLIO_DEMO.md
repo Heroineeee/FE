@@ -16,7 +16,7 @@
 ```bash
 npm ci
 VITE_DEMO_MODE=true npm run dev
-VITE_DEMO_MODE=true npm run build
+VITE_DEMO_MODE=true npm run build:demo
 ```
 
 Windows PowerShell에서는:
@@ -45,3 +45,5 @@ npm run dev
 - `src/api/axiosInstance.ts`: `VITE_DEMO_MODE` 환경변수에 따라 데모 응답 사용
 
 `develop`에서는 데모 모드가 자동으로 켜지지 않으며 원래 API 연동 코드를 유지합니다.
+
+> 개발 메모: 기존 프로젝트의 `tsc -b`는 데모 기능과 무관한 여러 기존 TypeScript 오류로 실패합니다. `build:demo`는 Vite 번들만 검증하며 타입 검사를 대체하지 않습니다. 추후 원본 프로젝트 전체의 타입 오류를 수정한 뒤 일반 `npm run build`도 검증해야 합니다.
